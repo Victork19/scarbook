@@ -13,8 +13,8 @@ Scarbook adds `evidence_delta`, a read-only temporal comparison tool. It calls `
 ## Honesty and provenance
 
 - Missing values remain `null` and are listed in `data.missing_fields`.
-- Source failure returns `partial` or `unavailable`, never a fabricated successful result.
-- The result preserves both observation timestamps, statuses, modes, warnings, and normalized before/after values.
+- Missing fields return `partial`; source failure returns `partial` or `unavailable`, never a fabricated successful result.
+- The result preserves both observation timestamps, canonical evidence hashes, statuses, modes, warnings, and normalized before/after values.
 - The tool is read-only and makes no trade recommendation.
 
 ## Contract boundary

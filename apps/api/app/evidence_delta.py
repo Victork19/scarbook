@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from .hashing import evidence_hash
 
 TRUSTED_MODES = {"live", "fixture"}
 FIELDS = ("verdict", "risk", "rsi14")
@@ -26,8 +27,11 @@ def _trustworthy(evidence: dict[str, Any]) -> bool:
 
 def _observation(label: str, evidence: dict[str, Any]) -> dict[str, Any]:
     data = _data(evidence)
+    digest = evidence_hash(evidence)
     return {
         "label": label,
+        "evidence_hash": digest,
+        "hash_short": digest[:8].upper(),
         "as_of": _as_of(evidence),
         "status": evidence.get("status"),
         "data_mode": evidence.get("data_mode"),
@@ -68,8 +72,10 @@ def compare_evidence(symbol: str, before: dict[str, Any], after: dict[str, Any])
         else:
             warnings.append("A complete delta requires two successful live or fixture observations.")
     else:
-        status = "ok"
-        state = "changed" if changes else "unchanged"
+        status = "partial" if missing_fields else "ok"
+        state = "changed" if changes else ("insufficient_evidence" if missing_fields else "unchanged")
+        if missing_fields:
+            warnings.append("Some fields were missing from one or both observations and were not inferred.")
 
     before_verdict = before_data.get("verdict")
     after_verdict = after_data.get("verdict")
