@@ -28,7 +28,11 @@ class GateResult:
 
 
 def check_action(action: dict[str, Any], constraints: list[dict[str, Any]]) -> GateResult:
-    active = sorted(constraints, key=lambda item: PRIORITY.get(item["constraint_type"], 0), reverse=True)
+    active = sorted(
+        (item for item in constraints if item.get("active", True)),
+        key=lambda item: PRIORITY.get(item["constraint_type"], 0),
+        reverse=True,
+    )
     if action["side"] == "none" or action["size"] == 0:
         return GateResult(True, {"side": "none", "size": 0}, None, [], None)
     for constraint in active:
@@ -51,4 +55,3 @@ def check_action(action: dict[str, Any], constraints: list[dict[str, Any]]) -> G
                 modified=True,
             )
     return GateResult(True, action, None, [], None)
-
