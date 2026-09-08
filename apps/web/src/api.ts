@@ -1,4 +1,4 @@
-import type { Health, NewSessionResponse, RecheckResponse, SessionResponse } from "./types";
+import type { EvidenceDelta, Health, NewSessionResponse, RecheckResponse, SessionResponse } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || "http://localhost:8000";
 
@@ -23,6 +23,6 @@ export const api = {
   recheck: (sessionId: string) => request<RecheckResponse>("/api/recheck", { method: "POST", body: JSON.stringify({ session_id: sessionId }) }),
   freshSession: (symbol: string, parentSessionId: string) =>
     request<NewSessionResponse>("/api/session/new", { method: "POST", body: JSON.stringify({ symbol, parent_session_id: parentSessionId }) }),
+  evidenceDelta: (symbol: string) => request<EvidenceDelta>("/api/skill/evidence-delta", { method: "POST", body: JSON.stringify({ symbol }) }),
   wipe: (symbol: string) => request<{ constraints: import("./types").Constraint[] }>("/api/wipe", { method: "POST", body: JSON.stringify({ symbol }) }),
 };
-

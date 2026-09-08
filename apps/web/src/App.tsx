@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, CircleAlert, CircleDot, GitBranch, LockKeyhole, RotateCcw, ShieldCheck, Sparkles, X } from "lucide-react";
 import { api } from "./api";
-import type { Constraint, Decision, Health, NewSessionResponse, Receipt, RecheckResponse, SessionResponse } from "./types";
+import type { Constraint, Decision, EvidenceDelta, Health, NewSessionResponse, Receipt, RecheckResponse, SessionResponse } from "./types";
 
 const initialHealth: Health = { live: false, fixtures: false, ryo_reachable: false, llm_configured: false };
 
@@ -52,6 +52,46 @@ function ConstraintCard({ constraint }: { constraint: Constraint }) {
   );
 }
 
+function EvidenceDeltaCard({ delta }: { delta?: EvidenceDelta | null }) {
+  if (!delta) {
+    return (
+      <div className="skill-empty">
+        <Sparkles size={22} />
+        <p>Run the new read-only skill to compare<br />two sequential RYO observations.</p>
+      </div>
+    );
+  }
+
+  const before = delta.observations.find((item) => item.label === "before");
+  const after = delta.observations.find((item) => item.label === "after");
+  const state = delta.data.state.replaceAll("_", " ").toUpperCase();
+
+  return (
+    <div className="skill-result">
+      <div className="skill-result-top">
+        <div><span className="eyebrow">EVIDENCE DELTA RESULT</span><strong>{state}</strong></div>
+        <span className={`skill-status ${delta.status}`}>{delta.status.toUpperCase()}</span>
+      </div>
+      <div className="delta-pair">
+        {[before, after].map((observation) => observation && (
+          <div className="delta-observation" key={observation.label}>
+            <span className="delta-label">{observation.label === "before" ? "BEFORE / T0" : "AFTER / T1"}</span>
+            <b>{upper(observation.data.verdict)}</b>
+            <span>RSI14 {observation.data.rsi14 ?? "—"} · RISK {upper(observation.data.risk)}</span>
+            <small>{formatTime(observation.as_of)} · HASH {observation.hash_short}</small>
+          </div>
+        ))}
+      </div>
+      {delta.data.transition && <div className="delta-transition"><span>TRANSITION</span><strong>{delta.data.transition}</strong></div>}
+      {delta.data.changes.length > 0 ? <div className="delta-changes"><span>CHANGES DETECTED</span>{delta.data.changes.map((change) => <div key={change.field}><b>{change.field}</b><span>{String(change.before)} <ArrowRight size={13} /> {String(change.after)}</span></div>)}</div> : <div className="delta-unchanged">No compared fields changed between the two observations.</div>}
+      <div className="skill-note">
+        <ShieldCheck size={15} />
+        {delta.warnings.length ? delta.warnings[0] : "No missing fields. The observations were compared without inference."}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [symbol, setSymbol] = useState("SOL");
   const [health, setHealth] = useState(initialHealth);
@@ -59,6 +99,7 @@ export default function App() {
   const [commitId, setCommitId] = useState<string | null>(null);
   const [recheck, setRecheck] = useState<RecheckResponse | null>(null);
   const [fresh, setFresh] = useState<NewSessionResponse | null>(null);
+  const [delta, setDelta] = useState<EvidenceDelta | null>(null);
   const [historical, setHistorical] = useState<Constraint[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +114,7 @@ export default function App() {
   const hasT1 = Boolean(recheck);
   const hasFresh = Boolean(fresh);
   const statusText = useMemo(() => {
-    if (hasFresh) return "ACTION GATED";
+    if (hasFresh) return fresh?.replanned ? "REPLAN ACCEPTED" : fresh?.gate.allowed ? "DECISION READY" : "ACTION BLOCKED";
     if (hasT1) return recheck?.contradiction ? "CONSTRAINT ACTIVE" : "NO CONTRADICTION";
     if (hasCommit) return "COMMITTED";
     if (hasT0) return "DECISION PROPOSED";
@@ -91,7 +132,7 @@ export default function App() {
   }
 
   function start() {
-    run("start", async () => { setSession(await api.start(symbol)); setCommitId(null); setRecheck(null); setFresh(null); setHistorical([]); });
+    run("start", async () => { setSession(await api.start(symbol)); setCommitId(null); setRecheck(null); setFresh(null); setDelta(null); setHistorical([]); });
   }
 
   function commit() {
@@ -107,6 +148,10 @@ export default function App() {
   function newSession() {
     if (!session) return;
     run("fresh", async () => setFresh(await api.freshSession(symbol, session.session_id)));
+  }
+
+  function runEvidenceDelta() {
+    run("delta", async () => setDelta(await api.evidenceDelta(symbol)));
   }
 
   function wipe() {
@@ -138,7 +183,7 @@ export default function App() {
 
         <div className="experiment-grid">
           <section className="panel panel-t0">
-            <div className="panel-header"><div><span className="panel-number">01 / T0</span><h2>Initial commitment</h2></div><span className="panel-status">{session ? "OBSERVED" : "WAITING"}</span></div>
+            <div className="panel-header"><div><span className="panel-number">01 / T0</span><h2>Initial evidence + commitment</h2></div><span className="panel-status">{session ? "OBSERVED" : "WAITING"}</span></div>
             {!session ? <div className="empty-panel"><Sparkles size={25} /><p>Start a session to receive<br />the first live evidence receipt.</p></div> : <>
               <div className="session-chip"><GitBranch size={14} />{session.session_id}<span>FRESH SESSION</span></div>
               <Evidence receipt={session.receipt} title="LIVE EVIDENCE RECEIPT" />
@@ -158,18 +203,25 @@ export default function App() {
           </section>
 
           <section className="panel panel-fresh">
-            <div className="panel-header"><div><span className="panel-number">03 / T2</span><h2>Fresh agent session</h2></div><span className="panel-status">{hasFresh ? "REPLANNED" : "WAITING"}</span></div>
+            <div className="panel-header"><div><span className="panel-number">03 / T2</span><h2>Fresh agent session</h2></div><span className="panel-status">{hasFresh ? (currentFresh.replanned ? "REPLANNED" : "FINALIZED") : "WAITING"}</span></div>
             {!hasT1 ? <div className="empty-panel"><GitBranch size={25} /><p>The next agent receives a new<br />session, evidence, and constraints.</p></div> : !hasFresh ? <div className="action-prompt"><div className="constraint-count">{activeConstraints.length} active evidence-bound constraint{activeConstraints.length === 1 ? "" : "s"}</div><p>Conversation history does not cross this boundary. The runtime carries only enforceable constraints.</p><button className="wide-button dark" onClick={newSession} disabled={Boolean(loading)}>{loading === "fresh" ? "STARTING FRESH SESSION…" : "START FRESH SESSION"}<ArrowRight size={15} /></button></div> : <>
               <div className="session-chip"><GitBranch size={14} />{currentFresh.session_id}<span>PARENT {session?.session_id}</span></div>
               <DecisionCard decision={currentFresh.proposal} label="FRESH AGENT PROPOSAL" muted />
               <div className={`gate-result ${currentFresh.gate.allowed ? "allowed" : "blocked"}`}><div className="gate-heading"><span>ACTION GATE</span>{currentFresh.gate.allowed ? <Check size={17} /> : <X size={17} />}</div><strong>{currentFresh.gate.allowed ? "ALLOWED" : "REJECTED"}</strong>{currentFresh.gate.reason && <p>{currentFresh.gate.reason.replaceAll("_", " ")} · {currentFresh.gate.constraint_ids.join(", ")}</p>}</div>
-              <div className="replan-arrow"><ArrowRight size={15} /> REPLANNING <ArrowRight size={15} /></div>
+              {currentFresh.replanned ? <div className="replan-arrow"><ArrowRight size={15} /> REPLANNING <ArrowRight size={15} /></div> : <div className="replan-arrow accepted-line"><Check size={15} /> NO REPLAN NEEDED</div>}
               <DecisionCard decision={currentFresh.final_decision} label="FINAL PRACTICE DECISION" />
             </>}
           </section>
         </div>
 
         <section className="bottom-row"><div className="quote-block"><span className="quote-mark">“</span><p>Memory tells an agent what happened.<br /><strong>Scarbook changes what it can do next.</strong></p></div><div className="constraint-history"><div className="history-heading"><span>CONSTRAINT LEDGER</span><button onClick={wipe} disabled={Boolean(loading) || !activeConstraints.length}>{loading === "wipe" ? "WIPING…" : "WIPE ACTIVE"}</button></div>{(historical.length ? historical : activeConstraints).length ? <div className="ledger-list">{(historical.length ? historical : activeConstraints).map((constraint) => <ConstraintCard key={constraint.id} constraint={constraint} />)}</div> : <div className="ledger-empty">No evidence-bound constraints yet. The historical record will remain after a wipe.</div>}</div></section>
+        <section className="skill-panel">
+          <div className="skill-header">
+            <div><span className="panel-number">TRACK 03 / NEW SKILL</span><h2>Evidence delta</h2><p>Compare two sequential RYO observations and report what changed—without guessing when evidence is missing.</p></div>
+            <button className="wide-button amber" onClick={runEvidenceDelta} disabled={Boolean(loading)}>{loading === "delta" ? "COMPARING RYO…" : "RUN EVIDENCE DELTA"}<Sparkles size={15} /></button>
+          </div>
+          <EvidenceDeltaCard delta={delta} />
+        </section>
       </main>
       <footer><span>SCARBOOK / PRACTICE-TRADING RESEARCH PROTOTYPE</span><span>AGENT PROPOSES · RUNTIME ENFORCES</span></footer>
     </div>

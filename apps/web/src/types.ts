@@ -87,3 +87,40 @@ export interface Health {
   ryo_reachable: boolean;
   llm_configured: boolean;
 }
+
+export interface EvidenceDeltaChange {
+  field: string;
+  before: string | number;
+  after: string | number;
+  delta?: number;
+}
+
+export interface EvidenceDeltaObservation {
+  label: "before" | "after";
+  evidence_hash: string;
+  hash_short: string;
+  as_of: string;
+  status: string;
+  data_mode: string;
+  data: EvidenceData;
+  warnings: string[];
+}
+
+export interface EvidenceDelta {
+  schema_version: string;
+  tool: "evidence_delta";
+  status: "ok" | "partial" | "unavailable";
+  data_mode: string;
+  as_of: string;
+  request: { symbol: string };
+  data: {
+    state: "changed" | "unchanged" | "insufficient_evidence";
+    transition?: string | null;
+    changes: EvidenceDeltaChange[];
+    missing_fields: string[];
+    before: EvidenceData;
+    after: EvidenceData;
+  };
+  observations: EvidenceDeltaObservation[];
+  warnings: string[];
+}
