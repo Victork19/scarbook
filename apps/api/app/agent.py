@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from typing import Any
 
 import httpx
 
 from .config import Settings, settings
+from .contradiction import BEARISH, BULLISH
 from .schemas import AgentDecision
 
 
@@ -14,6 +16,8 @@ SYSTEM_PROMPT = """You are the Scarbook practice-trading agent.
 You receive current RYO evidence. Produce JSON with thesis, side (long/short/none), size (0, 0.25, or 1), confidence (0..1), and evidence_used.
 Distinguish evidence from inference. Never claim unavailable data is available. This is a practice trade only, not execution.
 """
+
+logger = logging.getLogger(__name__)
 
 
 class AgentService:
@@ -30,10 +34,10 @@ class AgentService:
     def _deterministic_decide(self, evidence: dict[str, Any]) -> AgentDecision:
         data = evidence.get("data") or {}
         verdict = data.get("verdict")
-        if verdict in {"bearish", "strong_bearish", "sell", "negative"}:
+        if verdict in BEARISH:
             side = "short"
             thesis = "Bearish evidence weakens the case for a long practice position."
-        elif verdict in {"bullish", "strong_bullish", "buy", "positive"}:
+        elif verdict in BULLISH:
             side = "long"
             thesis = "Bullish momentum and the current risk profile support a long practice position."
         else:
@@ -52,7 +56,7 @@ class AgentService:
         body = {
             "model": self.settings.llm_model,
             "temperature": 0,
-            "max_completion_tokens": 512,
+            "max_completion_tokens": 1024,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
@@ -84,7 +88,9 @@ class AgentService:
                 response.raise_for_status()
                 content = response.json()["choices"][0]["message"]["content"]
                 return AgentDecision.model_validate_json(content)
-            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
+            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                logger.warning("LLM decision failed on attempt %s (status=%s, type=%s)", attempt + 1, status, type(exc).__name__)
                 if attempt < 2:
                     await asyncio.sleep(0.4 * (2**attempt))
         return None

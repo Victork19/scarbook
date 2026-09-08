@@ -25,6 +25,7 @@ def normalize_response(
     raw = raw or {}
     nested = raw.get("data") if isinstance(raw.get("data"), dict) else {}
     source = {**raw, **nested}
+    technical = nested.get("technical_analysis") if isinstance(nested.get("technical_analysis"), dict) else {}
     status = str(_first(raw, "status") or _first(nested, "status") or default_status)
     mode = str(_first(raw, "data_mode", "mode") or _first(nested, "data_mode", "mode") or data_mode)
     if mode not in {"live", "fixture", "unavailable", "error"}:
@@ -39,6 +40,8 @@ def normalize_response(
     verdict = _first(source, "verdict", "signal", "market_verdict")
     risk = _first(source, "risk", "risk_level")
     rsi = _first(source, "rsi14", "rsi_14", "rsi")
+    if rsi is None:
+        rsi = _first(technical, "rsi14", "rsi_14", "rsi")
     try:
         rsi = None if rsi is None else float(rsi)
     except (TypeError, ValueError):

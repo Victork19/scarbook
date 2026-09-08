@@ -5,8 +5,8 @@ from typing import Any
 
 
 RISK_ORDER = {"low": 1, "medium": 2, "high": 3}
-BULLISH = {"bullish", "strong_bullish", "buy", "positive"}
-BEARISH = {"bearish", "strong_bearish", "sell", "negative"}
+BULLISH = {"bullish", "strong_bullish", "buy", "positive", "accumulate"}
+BEARISH = {"bearish", "strong_bearish", "sell", "negative", "reduce", "avoid", "distribute"}
 
 
 @dataclass(frozen=True)
@@ -67,4 +67,3 @@ def detect_contradiction(t0: dict[str, Any], t1: dict[str, Any], decision: dict[
             "RYO risk escalated after the committed decision.",
         )
     return None
-
