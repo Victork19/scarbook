@@ -27,3 +27,21 @@ curl --fail-with-body -sS -X POST "${API_URL}/api/session/new" \
 {"symbol":"SOL","parent_session_id":"${SESSION_ID}"}
 JSON
 echo
+
+echo "Listing Track 3 MCP tools"
+curl --fail-with-body -sS -X POST "${API_URL}/api/mcp" \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"jsonrpc":"2.0","id":"list","method":"tools/list","params":{}}'
+echo
+
+echo "Calling Track 3 evidence_delta skill"
+curl --fail-with-body -sS -X POST "${API_URL}/api/mcp" \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"jsonrpc":"2.0","id":"call","method":"tools/call","params":{"name":"evidence_delta","arguments":{"symbol":"SOL"}}}'
+echo
+
+echo "Calling Track 3 REST endpoint"
+curl --fail-with-body -sS -X POST "${API_URL}/api/skill/evidence-delta" \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"symbol":"SOL"}'
+echo
