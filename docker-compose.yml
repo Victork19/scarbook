@@ -1,0 +1,31 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: scarbook-api:latest
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /var/lib/scarbook/scarbook.db
+      RAW_DIR: /var/lib/scarbook/raw
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - scarbook-data:/var/lib/scarbook
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  scarbook-data:
+    name: scarbook-data

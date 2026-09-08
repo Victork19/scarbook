@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+start.md
+apps/web/node_modules
+apps/web/dist
+apps/web/.env*
+apps/api/tests
+apps/api/data
+data
+node_modules
+__pycache__
+*.py[cod]
+*.db
+*.db-*
+*.tsbuildinfo

@@ -1,0 +1,15 @@
+[Unit]
+Description=Scarbook Docker Compose stack
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/scarbook
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker compose --env-file /opt/scarbook/.env -f /opt/scarbook/docker-compose.yml up -d --build --remove-orphans
+ExecStop=/usr/bin/docker compose --env-file /opt/scarbook/.env -f /opt/scarbook/docker-compose.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
