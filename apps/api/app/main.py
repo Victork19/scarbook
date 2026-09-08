@@ -178,7 +178,15 @@ async def recheck(request: RecheckRequest) -> dict[str, Any]:
     constraint = None
     if candidate:
         constraint_id = db.next_constraint_id()
-        values = compile_constraint(candidate, constraint_id=constraint_id, symbol=session["symbol"], decision=decision, t0=db.get_receipt_for_phase(session["id"], "t0")["evidence"], t1=t1["evidence"])
+        values = compile_constraint(
+            candidate,
+            constraint_id=constraint_id,
+            symbol=session["symbol"],
+            decision=decision,
+            t0=db.get_receipt_for_phase(session["id"], "t0")["evidence"],
+            t1=t1["evidence"],
+            t1_receipt_id=t1["id"],
+        )
         constraint = db.create_constraint(values)
         db.update_session(session["id"], "constraint_active")
     else:

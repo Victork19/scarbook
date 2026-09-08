@@ -3,7 +3,16 @@ from __future__ import annotations
 from .contradiction import ConstraintCandidate
 
 
-def compile_constraint(candidate: ConstraintCandidate, *, constraint_id: str, symbol: str, decision: dict, t0: dict, t1: dict) -> dict:
+def compile_constraint(
+    candidate: ConstraintCandidate,
+    *,
+    constraint_id: str,
+    symbol: str,
+    decision: dict,
+    t0: dict,
+    t1: dict,
+    t1_receipt_id: str,
+) -> dict:
     t0_time = str(t0.get("as_of", "")).replace("T", " ").replace("Z", " UTC")[:19]
     t1_time = str(t1.get("as_of", "")).replace("T", " ").replace("Z", " UTC")[:19]
     t0_data = t0.get("data") or {}
@@ -28,7 +37,7 @@ def compile_constraint(candidate: ConstraintCandidate, *, constraint_id: str, sy
         "id": constraint_id,
         "symbol": symbol,
         "source_decision_id": decision["id"],
-        "trigger_receipt_id": t1["id"],
+        "trigger_receipt_id": t1_receipt_id,
         "class": candidate.class_name,
         "constraint": candidate.constraint,
         "parameter": candidate.parameter,
@@ -38,4 +47,3 @@ def compile_constraint(candidate: ConstraintCandidate, *, constraint_id: str, sy
         "citation": citation,
         "action_policy": policy,
     }
-
