@@ -31,13 +31,21 @@ The agent proposes an action. The runtime decides whether that action is allowed
 
 ## RYO integration
 
-The backend calls `POST RYO_MCP_URL` with an MCP-compatible body:
+The backend calls `POST RYO_MCP_URL` with the standard MCP JSON-RPC `tools/call` body:
 
 ```json
-{"tool":"analyze_token","arguments":{"symbol":"SOL"}}
+{
+  "jsonrpc": "2.0",
+  "id": "scarbook-analyze_token",
+  "method": "tools/call",
+  "params": {
+    "name": "analyze_token",
+    "arguments": {"symbol": "SOL"}
+  }
+}
 ```
 
-The adapter is intentionally isolated because the event's exact request contract may change. Update `ryo.py` when the current RYO builder documentation is available. `RYO_MCP_KEY` is backend-only and is never included in Vite environment variables or browser code.
+The adapter unwraps MCP JSON-RPC results, including structured content and JSON text content. `RYO_MCP_KEY` is backend-only and is never included in Vite environment variables or browser code.
 
 ## Evidence model
 

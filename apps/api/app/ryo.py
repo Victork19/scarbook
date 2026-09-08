@@ -20,6 +20,45 @@ class RyoResponse:
     raw: dict[str, Any]
 
 
+def _decode_mcp_response(raw: dict[str, Any]) -> dict[str, Any]:
+    """Convert an MCP JSON-RPC response into the payload normalizer expects."""
+    if not isinstance(raw, dict) or raw.get("jsonrpc") != "2.0":
+        return raw
+
+    if raw.get("error"):
+        error = raw["error"]
+        message = error.get("message", "MCP request failed") if isinstance(error, dict) else str(error)
+        return {
+            "status": "error",
+            "data_mode": "unavailable",
+            "error": message,
+            "warnings": [message],
+        }
+
+    result = raw.get("result")
+    if not isinstance(result, dict):
+        return {"status": "error", "data_mode": "error", "warnings": ["MCP response had no result"]}
+
+    structured = result.get("structuredContent")
+    if isinstance(structured, dict):
+        return structured
+
+    for item in result.get("content", []):
+        if not isinstance(item, dict) or item.get("type") != "text":
+            continue
+        text = item.get("text")
+        if not isinstance(text, str):
+            continue
+        try:
+            decoded = json.loads(text)
+        except json.JSONDecodeError:
+            return {"status": "ok", "data": {"summary": text}}
+        if isinstance(decoded, dict):
+            return decoded
+
+    return {"status": "ok", "data": result}
+
+
 class RyoClient:
     def __init__(self, app_settings: Settings = settings):
         self.settings = app_settings
@@ -38,7 +77,15 @@ class RyoClient:
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         if self.settings.ryo_mcp_key:
             headers["Authorization"] = f"Bearer {self.settings.ryo_mcp_key}"
-        body = {"tool": tool, "arguments": {k: v for k, v in payload.items() if k != "phase"}}
+        body = {
+            "jsonrpc": "2.0",
+            "id": f"scarbook-{tool}",
+            "method": "tools/call",
+            "params": {
+                "name": tool,
+                "arguments": {k: v for k, v in payload.items() if k != "phase"},
+            },
+        }
         last_error: Exception | None = None
         for attempt in range(2):
             try:
@@ -49,7 +96,8 @@ class RyoClient:
                     continue
                 response.raise_for_status()
                 raw = response.json()
-                evidence = normalize_response(raw, symbol=symbol, tool=tool, data_mode="live")
+                decoded = _decode_mcp_response(raw)
+                evidence = normalize_response(decoded, symbol=symbol, tool=tool, data_mode="live")
                 if evidence.data_mode == "fixture":
                     evidence = evidence.model_copy(update={
                         "status": "error",
