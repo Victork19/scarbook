@@ -26,6 +26,26 @@ services:
       start_period: 15s
       retries: 3
 
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   scarbook-data:
     name: scarbook-data
+  caddy-data:
+    name: scarbook-caddy-data
+  caddy-config:
+    name: scarbook-caddy-config

@@ -125,22 +125,25 @@ Never put either LLM key in frontend variables or a submission archive.
 
 ## Security and deployment
 
-The frontend deploys to Cloudflare Pages; the backend deploys as a Docker Compose service on EC2. Docker binds the API to `127.0.0.1:8000`, Nginx terminates HTTPS, and the named `scarbook-data` volume preserves SQLite and raw evidence across image rebuilds. The frontend talks only to Scarbook, never directly to RYO.
+The frontend deploys to Cloudflare Pages; the backend deploys as a Docker Compose service on EC2. Caddy terminates HTTPS inside Docker, proxies the public hostname to the private `api:8000` service, and persists certificates in named Docker volumes. The named `scarbook-data` volume preserves SQLite and raw evidence across image rebuilds. The frontend talks only to Scarbook, never directly to RYO.
 
 One-time EC2 bootstrap:
 
 ```bash
 cd /opt/scarbook
-sudo API_DOMAIN=api.example.com CERTBOT_EMAIL=ops@example.com bash ./deploy/install-ec2.sh
+cp .env.example .env
+# Set RYO_MCP_KEY, LLM_API_KEY, and PUBLIC_DOMAIN in .env.
+sudo docker compose --env-file .env up -d --build
 ```
 
-Put the production `RYO_MCP_KEY` and CORS origins in `/opt/scarbook/.env`, then deploy updates with:
+Point the `PUBLIC_DOMAIN` DNS record at the EC2 public IP and allow TCP ports 80 and 443 in the EC2 Security Group. Caddy automatically obtains and renews the HTTPS certificate. For later releases:
 
 ```bash
-sudo bash ./deploy/deploy-ec2.sh
+git pull --ff-only
+sudo docker compose --env-file .env up -d --build --remove-orphans
 ```
 
-Cloudflare Pages uses root `apps/web`, build command `npm run build`, output `dist`, and `VITE_API_URL=https://api.example.com`. Full details are in [deploy/cloudflare.md](deploy/cloudflare.md).
+Cloudflare Pages uses root `apps/web`, build command `npm run build`, output `dist`, and `VITE_API_URL=https://scarbook.duckdns.org`. Full details are in [deploy/cloudflare.md](deploy/cloudflare.md).
 
 ## Prior Work
 
