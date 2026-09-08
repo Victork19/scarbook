@@ -57,25 +57,9 @@ class AgentService:
             "model": self.settings.llm_model,
             "temperature": 0,
             "max_completion_tokens": 1024,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "scarbook_agent_decision",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "thesis": {"type": "string", "minLength": 1, "maxLength": 1000},
-                            "side": {"type": "string", "enum": ["long", "short", "none"]},
-                            "size": {"type": "number", "enum": [0, 0.25, 1]},
-                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                            "evidence_used": {"type": "array", "items": {"type": "string"}},
-                        },
-                        "required": ["thesis", "side", "size", "confidence", "evidence_used"],
-                    },
-                },
-            },
+            # JSON Object Mode is supported across Groq's lightweight models.
+            # AgentDecision validation below remains the hard application boundary.
+            "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(evidence, ensure_ascii=False)},
