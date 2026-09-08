@@ -1,0 +1,28 @@
+{
+  "name": "evidence_delta",
+  "version": "1.0.0",
+  "description": "Compare two sequential RYO analyze_token observations for one symbol and report explicit market-evidence changes.",
+  "runtime": "http-jsonrpc",
+  "transport": "POST /api/mcp",
+  "permissions": ["read-only", "ryo.analyze_token"],
+  "input": {
+    "type": "object",
+    "required": ["symbol"],
+    "properties": {
+      "symbol": {"type": "string", "minLength": 1, "maxLength": 20}
+    },
+    "additionalProperties": false
+  },
+  "output": {
+    "status": ["ok", "partial", "unavailable"],
+    "states": ["changed", "unchanged", "insufficient_evidence"],
+    "data_modes": ["live", "fixture", "mixed", "unavailable"],
+    "required": ["schema_version", "tool", "status", "data_mode", "data", "observations", "warnings"]
+  },
+  "honesty": {
+    "missing_values": "preserve-null-and-warn",
+    "source_failure": "return-partial-or-unavailable",
+    "inference": "no-change-is-not-inferred-from-missing-data",
+    "provenance": "return-before-and-after-observation-metadata"
+  }
+}

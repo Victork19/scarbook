@@ -12,11 +12,12 @@ from .config import settings
 from .constraints import compile_constraint
 from .contradiction import detect_contradiction
 from .db import Database
+from .evidence_delta import EVIDENCE_DELTA_TOOL, compare_evidence
 from .gate import check_action
 from .hashing import evidence_hash
 from .resolver import resolve_action
 from .ryo import RyoClient
-from .schemas import ActionCheckRequest, CommitRequest, RecheckRequest, SessionRequest, StartRequest, WipeRequest
+from .schemas import ActionCheckRequest, CommitRequest, EvidenceDeltaRequest, RecheckRequest, SessionRequest, StartRequest, WipeRequest
 from .utils import safe_symbol
 
 
@@ -106,6 +107,67 @@ async def health() -> dict[str, Any]:
         "fixtures": fixtures,
         "ryo_reachable": bool(fixtures or configured),
         "llm_configured": bool(settings.llm_provider and settings.llm_api_key and settings.llm_model),
+    }
+
+
+async def _evidence_delta(symbol: str) -> dict[str, Any]:
+    before = await ryo.call_ryo("analyze_token", {"symbol": symbol, "phase": "t0"})
+    after = await ryo.call_ryo("analyze_token", {"symbol": symbol, "phase": "t1"})
+    return compare_evidence(
+        symbol,
+        before.evidence.model_dump(mode="json"),
+        after.evidence.model_dump(mode="json"),
+    )
+
+
+@app.post("/api/skill/evidence-delta")
+async def evidence_delta(request: EvidenceDeltaRequest) -> dict[str, Any]:
+    return await _evidence_delta(request.symbol)
+
+
+@app.post("/api/mcp")
+async def skill_mcp(request: dict[str, Any]) -> dict[str, Any]:
+    """Minimal JSON-RPC MCP surface for the Track 3 read-only skill."""
+    request_id = request.get("id")
+    method = request.get("method")
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "scarbook-skills", "version": "1.0.0"},
+            },
+        }
+    if method == "notifications/initialized":
+        return {"jsonrpc": "2.0", "id": request_id, "result": {}}
+    if method == "tools/list":
+        return {"jsonrpc": "2.0", "id": request_id, "result": {"tools": [EVIDENCE_DELTA_TOOL]}}
+    if method != "tools/call":
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {"code": -32601, "message": f"Unsupported method: {method}"},
+        }
+
+    params = request.get("params") or {}
+    if params.get("name") != EVIDENCE_DELTA_TOOL["name"]:
+        return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32602, "message": "Unknown tool"}}
+    try:
+        arguments = EvidenceDeltaRequest.model_validate(params.get("arguments") or {})
+    except Exception as exc:
+        return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32602, "message": str(exc)}}
+    result = await _evidence_delta(arguments.symbol)
+    encoded = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "result": {
+            "content": [{"type": "text", "text": encoded}],
+            "structuredContent": result,
+            "isError": False,
+        },
     }
 
 

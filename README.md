@@ -121,6 +121,8 @@ Never put either LLM key in frontend variables or a submission archive.
 | POST | `/api/session/new` | fresh T2 session, gate, and bounded replan |
 | POST | `/api/action/check` | deterministic action gate |
 | POST | `/api/wipe` | deactivate constraints without deleting history |
+| POST | `/api/skill/evidence-delta` | Track 3 temporal evidence comparison skill |
+| POST | `/api/mcp` | MCP `tools/list` and `tools/call` surface for Track 3 |
 | GET | `/api/state` | current experiment state |
 
 ## Security and deployment

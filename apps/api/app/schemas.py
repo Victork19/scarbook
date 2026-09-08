@@ -102,3 +102,11 @@ class WipeRequest(BaseModel):
     def normalize_symbol(cls, value: str) -> str:
         return value.strip().upper()
 
+
+class EvidenceDeltaRequest(BaseModel):
+    symbol: str = Field(min_length=1, max_length=20)
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        return value.strip().upper()
